@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    events {}
+    http {
+      # Real client IP from Traefik
+      real_ip_header X-Forwarded-For;
+      set_real_ip_from 0.0.0.0/0;
+      real_ip_recursive on;
+
+      log_format custom '$remote_addr - $http_x_forwarded_for - [$time_local] "$request" $status $body_bytes_sent';
+      access_log /var/log/nginx/access.log custom;
+
+      server {
+        listen 80;
+        location / {
+          return 200 "Hello from Kubernetes NGINX\n";
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-ip
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-ip
+  template:
+    metadata:
+      labels:
+        app: nginx-ip
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-ip-svc
+spec:
+  selector:
+    app: nginx-ip
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: iptest-strip
+  namespace: default
+spec:
+  stripPrefix:
+    prefixes:
+      - /iptest
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nginx-ip-route
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: PathPrefix(`/iptest`)
+      kind: Rule
+      middlewares:
+        - name: iptest-strip
+      services:
+        - name: nginx-ip-svc
+          port: 80
