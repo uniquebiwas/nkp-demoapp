@@ -7,9 +7,14 @@ data:
   nginx.conf: |
     events {}
     http {
-      # Real client IP from Traefik
+      # Get real client IP from Traefik (X-Forwarded-For)
       real_ip_header X-Forwarded-For;
-      set_real_ip_from 0.0.0.0/0;
+
+      # TRUST the IPs of Traefik, nodes, or LB/firewall
+      # Replace these CIDRs with your cluster / LB ranges
+      set_real_ip_from 10.0.0.0/8;       # cluster internal network
+      set_real_ip_from 192.168.0.0/16;   # node/firewall IPs
+      set_real_ip_from 127.0.0.1;        # local host (optional)
       real_ip_recursive on;
 
       log_format custom '$remote_addr - $http_x_forwarded_for - [$time_local] "$request" $status $body_bytes_sent';
@@ -78,7 +83,7 @@ metadata:
   name: nginx-ip-route
 spec:
   entryPoints:
-    - web
+    - websecure
   routes:
     - match: PathPrefix(`/iptest`)
       kind: Rule
