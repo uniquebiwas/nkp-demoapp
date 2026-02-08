@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex-overrides
+  namespace: kommander
+data:
+  values.yaml: |
+    config:
+      staticPasswords:
+      - email: nkpadmin
+        hash: $2y$10$1mQqXjms/vq5aNPp75ghDurOLACOsiyYheOGIBTkOyAHSh9UY0JjW
